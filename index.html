@@ -1,0 +1,1029 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Nico Telecommunication — Recharge Card Manager</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<style>
+/* ── Variables ── */
+:root {
+  --blue:    #1B4FD8;
+  --blue-d:  #1340B0;
+  --blue-l:  #EFF4FF;
+  --green:   #16A34A;
+  --green-l: #DCFCE7;
+  --red:     #DC2626;
+  --yellow:  #D97706;
+  --gray-50: #F8FAFC;
+  --gray-100:#F1F5F9;
+  --gray-200:#E2E8F0;
+  --gray-400:#94A3B8;
+  --gray-600:#475569;
+  --gray-800:#1E293B;
+  --white:   #FFFFFF;
+  --radius:  10px;
+  --shadow:  0 4px 24px rgba(27,79,216,0.08);
+  --font:    'Outfit', sans-serif;
+  --mono:    'JetBrains Mono', monospace;
+}
+
+/* ── Reset ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font); background: var(--gray-50); color: var(--gray-800); min-height: 100vh; }
+
+/* ── Animations ── */
+@keyframes fadeUp   { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:none; } }
+@keyframes slideIn  { from { opacity:0; transform:translateX(-10px); } to { opacity:1; transform:none; } }
+@keyframes pulse    { 0%,100% { opacity:1; } 50% { opacity:0.5; } }
+@keyframes spin     { to { transform: rotate(360deg); } }
+.fade-up  { animation: fadeUp .35s ease both; }
+.stagger-1{ animation-delay:.05s; }
+.stagger-2{ animation-delay:.1s; }
+.stagger-3{ animation-delay:.15s; }
+.stagger-4{ animation-delay:.2s; }
+
+/* ════════════════════════════════
+   LOGIN PAGE
+════════════════════════════════ */
+#login-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background: linear-gradient(145deg, #0F2E8A 0%, #1B4FD8 50%, #1A6B3C 100%);
+  padding: 20px;
+}
+.login-card {
+  background: var(--white);
+  border-radius: 20px;
+  padding: 44px 40px 36px;
+  width: 100%;
+  max-width: 420px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+}
+.login-logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 28px;
+}
+.logo-badge {
+  width: 44px; height: 44px;
+  background: linear-gradient(135deg, var(--blue), var(--blue-d));
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-weight: 800; font-size: 20px;
+}
+.login-logo-text { font-size: 17px; font-weight: 700; color: var(--gray-800); line-height: 1.2; }
+.login-logo-text small { display:block; font-size: 11px; font-weight: 400; color: var(--gray-400); }
+.login-title   { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+.login-subtitle{ font-size: 13px; color: var(--gray-600); margin-bottom: 28px; }
+.field         { margin-bottom: 16px; }
+.field label   { display:block; font-size:13px; font-weight:600; color:var(--gray-600); margin-bottom:6px; }
+.field input   {
+  width: 100%; padding: 12px 14px;
+  border: 1.5px solid var(--gray-200);
+  border-radius: var(--radius);
+  font-size: 14px; font-family: var(--font);
+  transition: border .2s, box-shadow .2s;
+  outline: none;
+}
+.field input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(27,79,216,0.12); }
+.error-msg { color: var(--red); font-size: 12px; margin-top: 4px; display:none; }
+.btn-primary {
+  width: 100%; padding: 13px;
+  background: linear-gradient(135deg, var(--blue), var(--blue-d));
+  color: #fff; border: none; border-radius: var(--radius);
+  font-size: 15px; font-weight: 600; font-family: var(--font);
+  cursor: pointer; transition: opacity .2s, transform .15s;
+  margin-top: 4px;
+}
+.btn-primary:hover  { opacity: .93; transform: translateY(-1px); }
+.btn-primary:active { transform: translateY(0); }
+.login-hint { font-size: 11.5px; color: var(--gray-400); text-align:center; margin-top:18px; }
+.login-hint code { background: var(--gray-100); padding:1px 5px; border-radius:4px; font-family:var(--mono); color:var(--gray-600); }
+
+/* ════════════════════════════════
+   APP SHELL (hidden until login)
+════════════════════════════════ */
+#app { display: none; }
+
+/* ── Topbar ── */
+.topbar {
+  background: linear-gradient(90deg, #0F2E8A, var(--blue));
+  color: #fff;
+  padding: 0 24px;
+  height: 60px;
+  display: flex; align-items: center; justify-content: space-between;
+  position: sticky; top: 0; z-index: 100;
+  box-shadow: 0 2px 12px rgba(15,46,138,0.3);
+}
+.topbar-brand { display:flex; align-items:center; gap:10px; }
+.topbar-badge {
+  width:34px; height:34px; border-radius:9px;
+  background:rgba(255,255,255,0.2);
+  display:flex; align-items:center; justify-content:center;
+  font-weight:800; font-size:16px;
+}
+.topbar-name  { font-size:15px; font-weight:700; }
+.topbar-sub   { font-size:10px; opacity:.65; letter-spacing:.05em; }
+.btn-logout {
+  background: rgba(255,255,255,0.15);
+  border: 1px solid rgba(255,255,255,0.25);
+  color: #fff; padding:7px 16px; border-radius:8px;
+  font-size:13px; font-weight:500; font-family:var(--font);
+  cursor:pointer; transition:.2s;
+}
+.btn-logout:hover { background:rgba(255,255,255,0.25); }
+
+/* ── Layout ── */
+.container { max-width: 1100px; margin: 0 auto; padding: 28px 20px; }
+
+/* ── Section card ── */
+.card {
+  background: var(--white);
+  border-radius: 14px;
+  border: 1px solid var(--gray-200);
+  box-shadow: var(--shadow);
+  padding: 24px;
+  margin-bottom: 24px;
+}
+.card-title {
+  font-size: 14px; font-weight: 700;
+  color: var(--gray-800);
+  margin-bottom: 18px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--gray-100);
+  display:flex; align-items:center; gap:8px;
+}
+.card-title .icon { font-size:18px; }
+
+/* ── Form grid ── */
+.form-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:16px; }
+.form-group label { display:block; font-size:12px; font-weight:600; color:var(--gray-600); margin-bottom:6px; letter-spacing:.04em; text-transform:uppercase; }
+.form-group select,
+.form-group input[type=number] {
+  width:100%; padding:11px 13px;
+  border:1.5px solid var(--gray-200);
+  border-radius:var(--radius);
+  font-size:14px; font-family:var(--font);
+  background:var(--white);
+  transition:border .2s, box-shadow .2s; outline:none;
+}
+.form-group select:focus,
+.form-group input[type=number]:focus { border-color:var(--blue); box-shadow:0 0 0 3px rgba(27,79,216,0.1); }
+.form-group input[type=number] { -moz-appearance:textfield; }
+.form-group input[type=number]::-webkit-inner-spin-button { -webkit-appearance:none; }
+
+/* network badge colours inside select */
+.btn-generate {
+  align-self: flex-end;
+  padding: 11px 28px;
+  background: linear-gradient(135deg, var(--blue), var(--blue-d));
+  color:#fff; border:none; border-radius:var(--radius);
+  font-size:14px; font-weight:600; font-family:var(--font);
+  cursor:pointer; transition:.2s; white-space:nowrap;
+  display:flex; align-items:center; gap:8px;
+}
+.btn-generate:hover  { opacity:.9; transform:translateY(-1px); }
+.btn-generate:active { transform:translateY(0); }
+.spinner { width:16px; height:16px; border:2px solid rgba(255,255,255,.3); border-top-color:#fff; border-radius:50%; animation:spin .6s linear infinite; display:none; }
+
+/* ── Toolbar ── */
+.toolbar {
+  display:flex; flex-wrap:wrap; gap:10px;
+  align-items:center; justify-content:space-between;
+  margin-bottom:16px;
+}
+.toolbar-right { display:flex; gap:8px; flex-wrap:wrap; }
+.btn-sm {
+  padding:8px 16px; border-radius:8px;
+  font-size:13px; font-weight:600; font-family:var(--font);
+  cursor:pointer; transition:.15s; display:flex; align-items:center; gap:6px; border:none;
+}
+.btn-print  { background:var(--blue);  color:#fff; }
+.btn-print:hover  { background:var(--blue-d); }
+.btn-pdf    { background:var(--green); color:#fff; }
+.btn-pdf:hover    { background:#15803d; }
+.btn-delete { background:#FEF2F2; color:var(--red); border:1px solid #FECACA; }
+.btn-delete:hover { background:#FEE2E2; }
+.btn-delete:disabled { opacity:.4; cursor:not-allowed; }
+
+/* ── Filters ── */
+.filters { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px; }
+.filter-select {
+  padding:7px 12px; border:1.5px solid var(--gray-200); border-radius:8px;
+  font-size:13px; font-family:var(--font); background:var(--white);
+  outline:none; cursor:pointer; transition:.15s;
+}
+.filter-select:focus { border-color:var(--blue); }
+.search-input {
+  padding:7px 13px; border:1.5px solid var(--gray-200); border-radius:8px;
+  font-size:13px; font-family:var(--font); outline:none; min-width:200px; transition:.15s;
+}
+.search-input:focus { border-color:var(--blue); box-shadow:0 0 0 3px rgba(27,79,216,0.08); }
+
+/* ── Table ── */
+.table-wrap { overflow-x:auto; border-radius:10px; border:1px solid var(--gray-200); }
+table { width:100%; border-collapse:collapse; font-size:13px; }
+thead tr { background:var(--gray-50); }
+th {
+  padding:11px 14px; text-align:left;
+  font-size:11px; font-weight:600; color:var(--gray-600);
+  letter-spacing:.06em; text-transform:uppercase;
+  border-bottom:1px solid var(--gray-200);
+}
+td {
+  padding:11px 14px;
+  border-bottom:1px solid var(--gray-100);
+  vertical-align:middle;
+}
+tr:last-child td { border-bottom:none; }
+tr:hover td { background:var(--blue-l); }
+.pin-code {
+  font-family:var(--mono); font-size:13px; font-weight:600;
+  color:var(--gray-800); letter-spacing:.1em;
+}
+.badge {
+  display:inline-block; padding:3px 10px; border-radius:20px;
+  font-size:11px; font-weight:600; letter-spacing:.04em;
+}
+.badge-mtn     { background:#FEF9C3; color:#854D0E; }
+.badge-airtel  { background:#FEE2E2; color:#991B1B; }
+.badge-glo     { background:#DCFCE7; color:#166534; }
+.badge-9mobile { background:#D1FAE5; color:#065F46; }
+.checkbox-col  { width:36px; }
+input[type=checkbox] { width:15px; height:15px; cursor:pointer; accent-color:var(--blue); }
+.empty-state { text-align:center; padding:48px 20px; color:var(--gray-400); }
+.empty-state .es-icon { font-size:40px; margin-bottom:10px; }
+.count-badge { background:var(--blue-l); color:var(--blue); padding:3px 10px; border-radius:20px; font-size:12px; font-weight:600; }
+
+/* ════════════════════════════════
+   PRINT STYLES
+════════════════════════════════ */
+@media print {
+  body > *           { display:none !important; }
+  #print-area        { display:block !important; }
+  @page              { size:A4; margin:10mm; }
+  .print-header      { text-align:center; margin-bottom:5mm; padding-bottom:3mm; border-bottom:1.5pt solid #1B4FD8; }
+  .print-header h1   { font-size:15pt; color:#1B4FD8; margin-bottom:1pt; }
+  .print-header-sub  { font-size:8pt; color:#555; margin-bottom:1mm; }
+  .print-bank-box    { display:inline-block; margin-top:2mm; background:#EFF4FF; border:1pt solid #BFDBFE; border-radius:4pt; padding:2mm 5mm; }
+  .print-bank-box p  { font-size:7.5pt; color:#1B4FD8; font-weight:600; margin:0; }
+  .cards-grid        { display:grid !important; grid-template-columns:repeat(3,1fr); gap:3.5mm; }
+  .voucher           { break-inside:avoid; border:1.2pt solid; border-radius:5pt; padding:4mm 3.5mm; font-family:Arial,sans-serif; }
+  .v-stripe          { border-radius:3pt 3pt 0 0; margin:-4mm -3.5mm 3mm; padding:2.5mm 3.5mm; display:flex; justify-content:space-between; align-items:center; }
+  .v-network-name    { font-size:9pt; font-weight:700; color:#fff; }
+  .v-serial          { font-size:6.5pt; color:rgba(255,255,255,0.85); }
+  .v-company         { text-align:center; font-size:6.5pt; color:#1B4FD8; font-weight:700; letter-spacing:.04em; margin-bottom:2mm; }
+  .v-amount          { text-align:center; font-size:15pt; font-weight:800; margin-bottom:2.5mm; }
+  .v-pin-box         { background:#F1F5F9; border-radius:3pt; padding:2.5mm; text-align:center; margin-bottom:2mm; }
+  .v-pin             { font-family:monospace; font-size:11pt; font-weight:700; letter-spacing:.12em; }
+  .v-divider         { border:none; border-top:0.5pt dashed #ccc; margin:2mm 0; }
+  .v-recharge        { font-size:6.5pt; color:#333; margin-bottom:1.5mm; }
+  .v-recharge strong { color:#000; }
+  .v-datetime        { font-size:6pt; color:#888; margin-bottom:1.5mm; }
+  .v-bank            { background:#F0FDF4; border:0.5pt solid #BBF7D0; border-radius:3pt; padding:1.5mm 2.5mm; }
+  .v-bank p          { font-size:6pt; color:#166534; margin:0; line-height:1.5; }
+  .v-bank strong     { font-size:6.5pt; }
+}
+
+#print-area { display:none; }
+
+/* ── Toast ── */
+.toast {
+  position:fixed; bottom:24px; right:24px;
+  background:#1E293B; color:#fff;
+  padding:12px 18px; border-radius:10px;
+  font-size:13px; font-weight:500;
+  box-shadow:0 8px 24px rgba(0,0,0,0.2);
+  z-index:9999; display:none; align-items:center; gap:10px;
+  animation:fadeUp .3s ease;
+}
+.toast.show { display:flex; }
+.toast.success::before { content:'✅'; }
+.toast.error::before   { content:'❌'; }
+.toast.info::before    { content:'ℹ️'; }
+</style>
+</head>
+<body>
+
+<!-- ══════════════ LOGIN PAGE ══════════════ -->
+<div id="login-page">
+  <div class="login-card fade-up">
+    <div class="login-logo">
+      <div class="logo-badge">N</div>
+      <div class="login-logo-text">
+        Nico Telecommunication
+        <small>Recharge Card Manager</small>
+      </div>
+    </div>
+
+    <!-- Tab toggle -->
+    <div style="display:flex;gap:0;margin-bottom:24px;border:1.5px solid var(--gray-200);border-radius:var(--radius);overflow:hidden;">
+      <button id="tab-signin" onclick="switchTab('signin')" style="flex:1;padding:9px;border:none;font-family:var(--font);font-size:13px;font-weight:600;cursor:pointer;background:var(--blue);color:#fff;transition:.2s;">Sign In</button>
+      <button id="tab-signup" onclick="switchTab('signup')" style="flex:1;padding:9px;border:none;font-family:var(--font);font-size:13px;font-weight:600;cursor:pointer;background:var(--white);color:var(--gray-600);transition:.2s;">Sign Up</button>
+    </div>
+
+    <!-- SIGN IN FORM -->
+    <div id="form-signin">
+      <h2 class="login-title">Welcome back</h2>
+      <p class="login-subtitle">Sign in to access your dashboard</p>
+      <div class="field">
+        <label>Username</label>
+        <input type="text" id="login-user" placeholder="Enter username" autocomplete="username" />
+      </div>
+      <div class="field">
+        <label>Password</label>
+        <input type="password" id="login-pass" placeholder="Enter password" autocomplete="current-password" />
+        <div class="error-msg" id="login-error">Incorrect username or password.</div>
+      </div>
+      <button class="btn-primary" onclick="doLogin()">Sign In</button>
+      <p class="login-hint">Admin credentials — username: <code>admin</code> &nbsp;|&nbsp; password: <code>nico2024</code></p>
+    </div>
+
+    <!-- SIGN UP FORM -->
+    <div id="form-signup" style="display:none;">
+      <h2 class="login-title">Create account</h2>
+      <p class="login-subtitle">Register to start generating cards</p>
+      <div class="field">
+        <label>Full Name</label>
+        <input type="text" id="reg-name" placeholder="e.g. Nicodemus Ikyegh" autocomplete="name" />
+      </div>
+      <div class="field">
+        <label>Username</label>
+        <input type="text" id="reg-user" placeholder="Choose a username" autocomplete="username" />
+      </div>
+      <div class="field">
+        <label>Password</label>
+        <input type="password" id="reg-pass" placeholder="Min. 6 characters" />
+      </div>
+      <div class="field">
+        <label>Confirm Password</label>
+        <input type="password" id="reg-pass2" placeholder="Repeat password" />
+        <div class="error-msg" id="reg-error">Passwords do not match.</div>
+      </div>
+      <button class="btn-primary" onclick="doSignUp()">Create Account</button>
+      <p class="login-hint" style="color:var(--green);display:none;" id="reg-success">✅ Account created! You can now sign in.</p>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════ APP ══════════════ -->
+<div id="app">
+
+  <!-- Topbar -->
+  <div class="topbar">
+    <div class="topbar-brand">
+      <div class="topbar-badge">N</div>
+      <div>
+        <div class="topbar-name">Nico Telecommunication</div>
+        <div class="topbar-sub">RECHARGE CARD MANAGER</div>
+      </div>
+    </div>
+    <button class="btn-logout" onclick="doLogout()">⏏ Sign Out</button>
+  </div>
+
+  <!-- Main content -->
+  <div class="container">
+
+    <!-- Generate card -->
+    <div class="card fade-up">
+      <div class="card-title"><span class="icon">⚡</span> Generate Recharge Cards</div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Network</label>
+          <select id="sel-network">
+            <option value="MTN">📶 MTN</option>
+            <option value="Airtel">📶 Airtel</option>
+            <option value="Glo">📶 Glo</option>
+            <option value="9mobile">📶 9mobile</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Amount (₦)</label>
+          <select id="sel-amount">
+            <option value="100">₦100</option>
+            <option value="200">₦200</option>
+            <option value="500">₦500</option>
+            <option value="1000">₦1,000</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Number of Cards</label>
+          <input type="number" id="inp-count" value="10" min="1" max="100" placeholder="1 – 100" />
+        </div>
+        <div class="form-group" style="display:flex;align-items:flex-end;">
+          <button class="btn-generate" onclick="generateCards()">
+            <div class="spinner" id="gen-spinner"></div>
+            <span id="gen-label">🎴 Generate Cards</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bank Account Settings -->
+    <div class="card fade-up stagger-1">
+      <div class="card-title"><span class="icon">🏦</span> Payment / Deposit Account
+        <span style="font-size:11px;font-weight:400;color:var(--gray-400);margin-left:auto;">Shown on every printed card</span>
+      </div>
+      <div class="form-grid" style="align-items:flex-end;">
+        <div class="form-group">
+          <label>Bank Name</label>
+          <input type="text" id="bank-name" placeholder="e.g. First Bank" style="width:100%;padding:11px 13px;border:1.5px solid var(--gray-200);border-radius:var(--radius);font-size:14px;font-family:var(--font);outline:none;" />
+        </div>
+        <div class="form-group">
+          <label>Account Number</label>
+          <input type="text" id="bank-number" placeholder="e.g. 0123456789" maxlength="10" style="width:100%;padding:11px 13px;border:1.5px solid var(--gray-200);border-radius:var(--radius);font-size:14px;font-family:var(--mono);outline:none;" />
+        </div>
+        <div class="form-group">
+          <label>Account Name</label>
+          <input type="text" id="bank-acctname" placeholder="e.g. Nico Telecommunication" style="width:100%;padding:11px 13px;border:1.5px solid var(--gray-200);border-radius:var(--radius);font-size:14px;font-family:var(--font);outline:none;" />
+        </div>
+        <div class="form-group" style="display:flex;align-items:flex-end;">
+          <button class="btn-generate" style="background:linear-gradient(135deg,var(--green),#15803d);" onclick="saveBankDetails()">
+            💾 Save Details
+          </button>
+        </div>
+      </div>
+      <div id="bank-preview" style="display:none;margin-top:14px;padding:12px 16px;background:var(--green-l);border:1px solid #BBF7D0;border-radius:var(--radius);font-size:13px;color:var(--green);">
+        ✅ Bank details saved: <strong id="bank-preview-text"></strong>
+      </div>
+    </div>
+
+    <!-- PIN Table card -->
+    <div class="card fade-up stagger-2">
+      <div class="card-title">
+        <span class="icon">📋</span> Generated PINs
+        <span class="count-badge" id="pin-count">0 cards</span>
+      </div>
+
+      <!-- Toolbar -->
+      <div class="toolbar">
+        <div class="filters">
+          <input class="search-input" id="search-input" placeholder="🔍 Search PIN or serial…" oninput="renderTable()" />
+          <select class="filter-select" id="filter-network" onchange="renderTable()">
+            <option value="">All Networks</option>
+            <option value="MTN">MTN</option>
+            <option value="Airtel">Airtel</option>
+            <option value="Glo">Glo</option>
+            <option value="9mobile">9mobile</option>
+          </select>
+          <select class="filter-select" id="filter-amount" onchange="renderTable()">
+            <option value="">All Amounts</option>
+            <option value="100">₦100</option>
+            <option value="200">₦200</option>
+            <option value="500">₦500</option>
+            <option value="1000">₦1000</option>
+          </select>
+        </div>
+        <div class="toolbar-right">
+          <button class="btn-sm btn-delete" id="btn-delete" onclick="deleteSelected()" disabled>🗑 Delete Selected</button>
+          <button class="btn-sm btn-print" onclick="printCards()">🖨 Print Cards</button>
+          <button class="btn-sm btn-pdf" onclick="exportPDF()">📄 Export PDF</button>
+        </div>
+      </div>
+
+      <!-- Table -->
+      <div class="table-wrap">
+        <table id="pin-table">
+          <thead>
+            <tr>
+              <th class="checkbox-col"><input type="checkbox" id="chk-all" onchange="toggleAll(this)" /></th>
+              <th>S/N</th>
+              <th>Network</th>
+              <th>Amount</th>
+              <th>PIN</th>
+            </tr>
+          </thead>
+          <tbody id="pin-tbody">
+            <tr><td colspan="5">
+              <div class="empty-state">
+                <div class="es-icon">🎴</div>
+                <div>No cards yet — use the form above to generate</div>
+              </div>
+            </td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div><!-- /container -->
+</div><!-- /app -->
+
+<!-- ══════════════ PRINT AREA ══════════════ -->
+<div id="print-area">
+  <div class="print-header">
+    <h1>Nico Telecommunication</h1>
+    <p class="print-header-sub">Recharge Card Vouchers &nbsp;·&nbsp; Printed: <span id="print-date"></span></p>
+    <div class="print-bank-box" id="print-bank-header" style="display:none;">
+      <p id="print-bank-header-text"></p>
+    </div>
+  </div>
+  <div class="cards-grid" id="print-cards"></div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+/* ══════════════════════════════════════════
+   AUTH
+══════════════════════════════════════════ */
+const ADMIN_USER = 'admin';
+const ADMIN_PASS = 'nico2024';
+
+// Load registered users from localStorage
+function getUsers() {
+  return JSON.parse(localStorage.getItem('nico_users') || '[]');
+}
+function saveUsers(users) {
+  localStorage.setItem('nico_users', JSON.stringify(users));
+}
+
+// Tab switcher
+function switchTab(tab) {
+  const isSignIn = tab === 'signin';
+  document.getElementById('form-signin').style.display = isSignIn ? 'block' : 'none';
+  document.getElementById('form-signup').style.display = isSignIn ? 'none'  : 'block';
+  document.getElementById('tab-signin').style.background = isSignIn ? 'var(--blue)' : 'var(--white)';
+  document.getElementById('tab-signin').style.color      = isSignIn ? '#fff' : 'var(--gray-600)';
+  document.getElementById('tab-signup').style.background = isSignIn ? 'var(--white)' : 'var(--blue)';
+  document.getElementById('tab-signup').style.color      = isSignIn ? 'var(--gray-600)' : '#fff';
+  // Clear errors
+  document.getElementById('login-error').style.display = 'none';
+  document.getElementById('reg-error').style.display   = 'none';
+  document.getElementById('reg-success').style.display = 'none';
+}
+
+function enterApp(username) {
+  document.getElementById('login-page').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  document.querySelector('.topbar-name').textContent = 'Nico Telecommunication';
+  document.querySelector('.topbar-sub').textContent  = `Logged in as ${username.toUpperCase()}`;
+  showToast(`Welcome, ${username}! 👋`, 'success');
+  renderTable();
+  loadBankDetails();
+}
+
+function doLogin() {
+  const u   = document.getElementById('login-user').value.trim();
+  const p   = document.getElementById('login-pass').value;
+  const err = document.getElementById('login-error');
+
+  // Check hardcoded admin first
+  if (u === ADMIN_USER && p === ADMIN_PASS) {
+    err.style.display = 'none';
+    enterApp('Admin');
+    return;
+  }
+
+  // Check registered users
+  const users = getUsers();
+  const found = users.find(usr => usr.username.toLowerCase() === u.toLowerCase() && usr.password === p);
+  if (found) {
+    err.style.display = 'none';
+    enterApp(found.name || found.username);
+  } else {
+    err.style.display = 'block';
+    document.getElementById('login-pass').value = '';
+  }
+}
+
+function doSignUp() {
+  const name  = document.getElementById('reg-name').value.trim();
+  const user  = document.getElementById('reg-user').value.trim();
+  const pass  = document.getElementById('reg-pass').value;
+  const pass2 = document.getElementById('reg-pass2').value;
+  const err   = document.getElementById('reg-error');
+  const ok    = document.getElementById('reg-success');
+
+  err.style.display = 'none';
+  ok.style.display  = 'none';
+
+  if (!name || !user || !pass) {
+    err.textContent = 'All fields are required.';
+    err.style.display = 'block'; return;
+  }
+  if (user.length < 3) {
+    err.textContent = 'Username must be at least 3 characters.';
+    err.style.display = 'block'; return;
+  }
+  if (pass.length < 6) {
+    err.textContent = 'Password must be at least 6 characters.';
+    err.style.display = 'block'; return;
+  }
+  if (pass !== pass2) {
+    err.textContent = 'Passwords do not match.';
+    err.style.display = 'block'; return;
+  }
+
+  const users = getUsers();
+  const exists = users.find(u => u.username.toLowerCase() === user.toLowerCase()) || user.toLowerCase() === ADMIN_USER;
+  if (exists) {
+    err.textContent = 'Username already taken. Choose another.';
+    err.style.display = 'block'; return;
+  }
+
+  users.push({ name, username: user, password: pass });
+  saveUsers(users);
+
+  // Clear form
+  ['reg-name','reg-user','reg-pass','reg-pass2'].forEach(id => document.getElementById(id).value = '');
+  ok.style.display = 'block';
+
+  // Auto-switch to sign in after 1.5s
+  setTimeout(() => {
+    switchTab('signin');
+    document.getElementById('login-user').value = user;
+    showToast('Account created! Sign in now.', 'success');
+  }, 1500);
+}
+
+function doLogout() {
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('login-page').style.display = 'flex';
+  document.getElementById('login-user').value = '';
+  document.getElementById('login-pass').value = '';
+  switchTab('signin');
+}
+
+// Enter key support
+document.addEventListener('DOMContentLoaded', () => {
+  ['login-user','login-pass'].forEach(id => {
+    document.getElementById(id).addEventListener('keydown', e => {
+      if (e.key === 'Enter') doLogin();
+    });
+  });
+  ['reg-name','reg-user','reg-pass','reg-pass2'].forEach(id => {
+    document.getElementById(id).addEventListener('keydown', e => {
+      if (e.key === 'Enter') doSignUp();
+    });
+  });
+});
+
+/* ══════════════════════════════════════════
+   DATA STORE
+══════════════════════════════════════════ */
+let pins = JSON.parse(localStorage.getItem('nico_pins') || '[]');
+const usedPins = new Set(pins.map(p => p.pin));
+
+function saveData() {
+  localStorage.setItem('nico_pins', JSON.stringify(pins));
+}
+
+/* ══════════════════════════════════════════
+   PIN GENERATION
+══════════════════════════════════════════ */
+function genPin() {
+  let pin;
+  do {
+    pin = Array.from({length:16}, () => Math.floor(Math.random()*10)).join('');
+  } while (usedPins.has(pin));
+  usedPins.add(pin);
+  return pin;
+}
+
+function formatPin(p) {
+  return `${p.slice(0,4)}-${p.slice(4,8)}-${p.slice(8,12)}-${p.slice(12,16)}`;
+}
+
+function generateCards() {
+  const network = document.getElementById('sel-network').value;
+  const amount  = parseInt(document.getElementById('sel-amount').value);
+  let   count   = parseInt(document.getElementById('inp-count').value);
+
+  if (isNaN(count) || count < 1) { showToast('Enter a valid count (1–100)', 'error'); return; }
+  count = Math.min(100, Math.max(1, count));
+
+  // Show spinner
+  document.getElementById('gen-spinner').style.display = 'block';
+  document.getElementById('gen-label').textContent = 'Generating…';
+
+  setTimeout(() => {
+    const base = pins.length;
+    for (let i = 0; i < count; i++) {
+      const serial = 'NC' + String(base + i + 1).padStart(6, '0');
+      pins.push({ id: Date.now() + i, serial, network, amount, pin: genPin() });
+    }
+    saveData();
+    renderTable();
+    document.getElementById('gen-spinner').style.display = 'none';
+    document.getElementById('gen-label').textContent = '🎴 Generate Cards';
+    showToast(`${count} ${network} card${count>1?'s':''} generated!`, 'success');
+  }, 300);
+}
+
+/* ══════════════════════════════════════════
+   TABLE RENDER
+══════════════════════════════════════════ */
+const BADGE = { MTN:'badge-mtn', Airtel:'badge-airtel', Glo:'badge-glo', '9mobile':'badge-9mobile' };
+
+function getFiltered() {
+  const q  = document.getElementById('search-input').value.toLowerCase();
+  const fn = document.getElementById('filter-network').value;
+  const fa = document.getElementById('filter-amount').value;
+  return pins.filter(p =>
+    (!fn || p.network === fn) &&
+    (!fa || String(p.amount) === fa) &&
+    (!q  || p.pin.includes(q) || p.serial.toLowerCase().includes(q))
+  );
+}
+
+function renderTable() {
+  const data  = getFiltered();
+  const tbody = document.getElementById('pin-tbody');
+  document.getElementById('pin-count').textContent = `${data.length} card${data.length!==1?'s':''}`;
+  document.getElementById('chk-all').checked = false;
+  updateDeleteBtn();
+
+  if (data.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state"><div class="es-icon">🎴</div><div>${pins.length ? 'No results match your filter.' : 'No cards yet — use the form above to generate.'}</div></div></td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = data.map((p, i) => `
+    <tr style="animation:slideIn .2s ease ${i*0.02}s both">
+      <td class="checkbox-col"><input type="checkbox" class="row-chk" data-id="${p.id}" onchange="updateDeleteBtn()" /></td>
+      <td style="font-family:var(--mono);font-size:12px;color:var(--gray-600)">${p.serial}</td>
+      <td><span class="badge ${BADGE[p.network]}">${p.network}</span></td>
+      <td style="font-weight:600">₦${p.amount.toLocaleString()}</td>
+      <td><span class="pin-code">${formatPin(p.pin)}</span></td>
+    </tr>
+  `).join('');
+}
+
+function toggleAll(master) {
+  document.querySelectorAll('.row-chk').forEach(c => c.checked = master.checked);
+  updateDeleteBtn();
+}
+
+function updateDeleteBtn() {
+  const any = document.querySelectorAll('.row-chk:checked').length > 0;
+  document.getElementById('btn-delete').disabled = !any;
+}
+
+function getSelectedIds() {
+  return [...document.querySelectorAll('.row-chk:checked')].map(c => Number(c.dataset.id));
+}
+
+function deleteSelected() {
+  const ids = new Set(getSelectedIds());
+  if (!ids.size) return;
+  if (!confirm(`Delete ${ids.size} card(s)? This cannot be undone.`)) return;
+  pins.forEach(p => { if(ids.has(p.id)) usedPins.delete(p.pin); });
+  pins = pins.filter(p => !ids.has(p.id));
+  saveData();
+  renderTable();
+  showToast(`${ids.size} card(s) deleted.`, 'info');
+}
+
+/* ══════════════════════════════════════════
+   BANK DETAILS
+══════════════════════════════════════════ */
+function getBankDetails() {
+  return JSON.parse(localStorage.getItem('nico_bank') || '{}');
+}
+
+function saveBankDetails() {
+  const name    = document.getElementById('bank-name').value.trim();
+  const number  = document.getElementById('bank-number').value.trim();
+  const acct    = document.getElementById('bank-acctname').value.trim();
+  if (!name || !number || !acct) { showToast('Please fill all bank fields.', 'error'); return; }
+  localStorage.setItem('nico_bank', JSON.stringify({ name, number, acct }));
+  document.getElementById('bank-preview').style.display = 'block';
+  document.getElementById('bank-preview-text').textContent = `${acct} · ${number} (${name})`;
+  showToast('Bank details saved!', 'success');
+}
+
+function loadBankDetails() {
+  const b = getBankDetails();
+  if (b.name) {
+    document.getElementById('bank-name').value    = b.name;
+    document.getElementById('bank-number').value  = b.number;
+    document.getElementById('bank-acctname').value = b.acct;
+    document.getElementById('bank-preview').style.display = 'block';
+    document.getElementById('bank-preview-text').textContent = `${b.acct} · ${b.number} (${b.name})`;
+  }
+}
+
+/* ══════════════════════════════════════════
+   RECHARGE INSTRUCTIONS per network
+══════════════════════════════════════════ */
+const RECHARGE_STEPS = {
+  MTN:      { dial: '*555*PIN#', alt: 'or *310*PIN#' },
+  Airtel:   { dial: '*126*PIN#', alt: '' },
+  Glo:      { dial: '*123*PIN#', alt: '' },
+  '9mobile':{ dial: '*222*PIN#', alt: '' },
+};
+
+function rechargeText(network) {
+  const r = RECHARGE_STEPS[network] || { dial: '*XXX*PIN#', alt: '' };
+  return `Dial ${r.dial}${r.alt ? ' ' + r.alt : ''} to recharge`;
+}
+
+/* ══════════════════════════════════════════
+   PRINT
+══════════════════════════════════════════ */
+const NET_STYLE = {
+  MTN:     { color:'#D97706', border:'#FDE68A', bg:'#D97706' },
+  Airtel:  { color:'#DC2626', border:'#FECACA', bg:'#DC2626' },
+  Glo:     { color:'#16A34A', border:'#BBF7D0', bg:'#16A34A' },
+  '9mobile':{ color:'#059669', border:'#A7F3D0', bg:'#059669' },
+};
+
+function buildVouchers(data, printedAt) {
+  const bank = getBankDetails();
+  const bankHTML = bank.name
+    ? `<div class="v-bank"><p>💳 <strong>Deposit Account</strong><br>${bank.acct}<br>${bank.number} &nbsp;·&nbsp; ${bank.name}</p></div>`
+    : '';
+
+  return data.map(p => {
+    const ns = NET_STYLE[p.network] || { color:'#333', border:'#ccc', bg:'#333' };
+    return `
+      <div class="voucher" style="border-color:${ns.border}">
+        <div class="v-stripe" style="background:${ns.bg}">
+          <span class="v-network-name">${p.network}</span>
+          <span class="v-serial">S/N: ${p.serial}</span>
+        </div>
+        <div class="v-company">NICO TELECOMMUNICATION</div>
+        <div class="v-amount" style="color:${ns.color}">&#8358;${p.amount.toLocaleString()}</div>
+        <div class="v-pin-box">
+          <div class="v-pin">${formatPin(p.pin)}</div>
+        </div>
+        <hr class="v-divider">
+        <div class="v-recharge">&#128222; <strong>How to recharge:</strong> ${rechargeText(p.network)}</div>
+        <div class="v-datetime">&#128337; Printed: ${printedAt}</div>
+        ${bankHTML}
+      </div>`;
+  }).join('');
+}
+
+function printCards() {
+  const data = getFiltered();
+  if (!data.length) { showToast('No cards to print.', 'error'); return; }
+  const now = new Date();
+  const printedAt = now.toLocaleDateString('en-NG', { day:'2-digit', month:'short', year:'numeric' })
+    + ' ' + now.toLocaleTimeString('en-NG', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+
+  document.getElementById('print-date').textContent = printedAt;
+
+  // Bank header
+  const bank = getBankDetails();
+  const bankHdr = document.getElementById('print-bank-header');
+  if (bank.name) {
+    document.getElementById('print-bank-header-text').textContent =
+      `Deposit Account: ${bank.acct}  |  ${bank.number}  |  ${bank.name}`;
+    bankHdr.style.display = 'inline-block';
+  } else {
+    bankHdr.style.display = 'none';
+  }
+
+  document.getElementById('print-cards').innerHTML = buildVouchers(data, printedAt);
+  window.print();
+}
+
+/* ══════════════════════════════════════════
+   PDF EXPORT
+══════════════════════════════════════════ */
+function exportPDF() {
+  const data = getFiltered();
+  if (!data.length) { showToast('No cards to export.', 'error'); return; }
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
+
+  const now = new Date();
+  const printedAt = now.toLocaleDateString('en-NG', { day:'2-digit', month:'short', year:'numeric' })
+    + ' ' + now.toLocaleTimeString('en-NG', { hour:'2-digit', minute:'2-digit' });
+
+  const bank = getBankDetails();
+
+  const PAGE_W = 210, PAGE_H = 297;
+  const MARGIN = 10;
+  const COLS = 3, ROWS = 4;
+  const gapX = 3, gapY = 4;
+  const cardW = (PAGE_W - 2*MARGIN - (COLS-1)*gapX) / COLS;
+  const cardH = (PAGE_H - 2*MARGIN - (ROWS-1)*gapY - 16) / ROWS;
+  const startY = MARGIN + 16;
+  const perPage = COLS * ROWS;
+
+  function drawPageHeader() {
+    doc.setFillColor(27, 79, 216);
+    doc.rect(0, 0, PAGE_W, 12, 'F');
+    doc.setTextColor(255,255,255);
+    doc.setFontSize(9); doc.setFont('helvetica','bold');
+    doc.text('NICO TELECOMMUNICATION — Recharge Card Vouchers', PAGE_W/2, 5.5, { align:'center' });
+    doc.setFontSize(6); doc.setFont('helvetica','normal');
+    doc.text(`Printed: ${printedAt}`, PAGE_W/2, 10, { align:'center' });
+  }
+
+  const NET_RGB = {
+    MTN:      [217,119,6],
+    Airtel:   [220,38,38],
+    Glo:      [22,163,74],
+    '9mobile':[5,150,105],
+  };
+
+  data.forEach((p, i) => {
+    const pos = i % perPage;
+    const col = pos % COLS;
+    const row = Math.floor(pos / COLS);
+
+    if (pos === 0) {
+      if (i > 0) doc.addPage();
+      drawPageHeader();
+    }
+
+    const x = MARGIN + col*(cardW+gapX);
+    const y = startY + row*(cardH+gapY);
+    const [r,g,b] = NET_RGB[p.network] || [50,50,50];
+
+    // Border
+    doc.setDrawColor(r,g,b);
+    doc.setLineWidth(0.35);
+    doc.roundedRect(x, y, cardW, cardH, 2, 2);
+
+    // Network stripe header
+    doc.setFillColor(r,g,b);
+    doc.roundedRect(x, y, cardW, 7, 2, 2, 'F');
+    doc.rect(x, y+3, cardW, 4, 'F');
+    doc.setTextColor(255,255,255);
+    doc.setFontSize(7.5); doc.setFont('helvetica','bold');
+    doc.text(p.network, x+3, y+5.2);
+    doc.setFontSize(5); doc.setFont('helvetica','normal');
+    doc.text(`S/N: ${p.serial}`, x+cardW-2, y+5.2, { align:'right' });
+
+    // Company
+    doc.setTextColor(r,g,b);
+    doc.setFontSize(5.5); doc.setFont('helvetica','bold');
+    doc.text('NICO TELECOMMUNICATION', x+cardW/2, y+11, { align:'center' });
+
+    // Amount
+    doc.setTextColor(20,20,20);
+    doc.setFontSize(13); doc.setFont('helvetica','bold');
+    doc.text(`N${p.amount.toLocaleString()}`, x+cardW/2, y+19, { align:'center' });
+
+    // PIN box
+    doc.setFillColor(241,245,249);
+    doc.roundedRect(x+3, y+21, cardW-6, 8, 1.5, 1.5, 'F');
+    doc.setTextColor(20,20,20);
+    doc.setFontSize(9); doc.setFont('courier','bold');
+    doc.text(formatPin(p.pin), x+cardW/2, y+26.5, { align:'center' });
+
+    // Dashed divider
+    doc.setDrawColor(200,200,200);
+    doc.setLineDash([1,1]);
+    doc.line(x+3, y+31, x+cardW-3, y+31);
+    doc.setLineDash([]);
+
+    // Recharge instructions
+    const ri = RECHARGE_STEPS[p.network] || { dial:'*XXX*PIN#', alt:'' };
+    doc.setTextColor(40,40,40);
+    doc.setFontSize(5.5); doc.setFont('helvetica','bold');
+    doc.text('How to recharge:', x+3, y+34.5);
+    doc.setFont('helvetica','normal');
+    doc.text(`Dial ${ri.dial}${ri.alt ? '  ' + ri.alt : ''}`, x+3, y+38);
+
+    // Print date/time
+    doc.setTextColor(140,140,140);
+    doc.setFontSize(4.8); doc.setFont('helvetica','normal');
+    doc.text(`Printed: ${printedAt}`, x+3, y+41.5);
+
+    // Bank account box
+    if (bank.name) {
+      doc.setFillColor(240,253,244);
+      doc.setDrawColor(187,247,208);
+      doc.roundedRect(x+3, y+43, cardW-6, 10, 1.2, 1.2, 'FD');
+      doc.setTextColor(22,101,52);
+      doc.setFontSize(5); doc.setFont('helvetica','bold');
+      doc.text('Deposit Account:', x+5, y+47);
+      doc.setFont('helvetica','normal');
+      doc.text(bank.acct, x+5, y+50);
+      doc.text(`${bank.number}  |  ${bank.name}`, x+5, y+53);
+    }
+  });
+
+  doc.save('nico-recharge-cards.pdf');
+  showToast(`PDF exported — ${data.length} card(s).`, 'success');
+}
+
+/* ══════════════════════════════════════════
+   TOAST
+══════════════════════════════════════════ */
+let toastTimer;
+function showToast(msg, type='info') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = `toast show ${type}`;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 3200);
+}
+</script>
+</body>
+</html>
